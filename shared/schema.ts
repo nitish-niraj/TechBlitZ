@@ -138,6 +138,19 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Chat messages table for real-time communication
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  complaintId: varchar("complaint_id").notNull(),
+  senderId: varchar("sender_id").notNull(),
+  message: text("message").notNull(),
+  messageType: varchar("message_type").default("text").notNull(), // text, image, file
+  attachmentUrl: varchar("attachment_url"),
+  isEdited: boolean("is_edited").default(false),
+  editedAt: timestamp("edited_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Define relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   department: one(departments, {
@@ -175,6 +188,7 @@ export const complaintsRelations = relations(complaints, ({ one, many }) => ({
   }),
   attachments: many(complaintAttachments),
   history: many(complaintHistory),
+  chatMessages: many(chatMessages),
 }));
 
 export const complaintAttachmentsRelations = relations(complaintAttachments, ({ one }) => ({
@@ -203,6 +217,17 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   relatedComplaint: one(complaints, {
     fields: [notifications.relatedComplaintId],
     references: [complaints.id],
+  }),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  complaint: one(complaints, {
+    fields: [chatMessages.complaintId],
+    references: [complaints.id],
+  }),
+  sender: one(users, {
+    fields: [chatMessages.senderId],
+    references: [users.id],
   }),
 }));
 
@@ -241,6 +266,12 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+  id: true,
+  createdAt: true,
+  editedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -254,6 +285,8 @@ export type ComplaintHistory = typeof complaintHistory.$inferSelect;
 export type InsertComplaintHistory = z.infer<typeof insertComplaintHistorySchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 
 // Extended types for API responses
 export type ComplaintWithDetails = Complaint & {
@@ -262,4 +295,5 @@ export type ComplaintWithDetails = Complaint & {
   assignedTo?: User;
   attachments?: ComplaintAttachment[];
   history?: (ComplaintHistory & { actor?: User })[];
+  chatMessages?: (ChatMessage & { sender?: User })[];
 };

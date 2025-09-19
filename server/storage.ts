@@ -5,6 +5,7 @@ import {
   complaintAttachments,
   complaintHistory,
   notifications,
+  chatMessages,
   type User,
   type UpsertUser,
   type Department,
@@ -17,6 +18,8 @@ import {
   type InsertComplaintHistory,
   type Notification,
   type InsertNotification,
+  type ChatMessage,
+  type InsertChatMessage,
   type ComplaintWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
@@ -52,6 +55,12 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   getUserNotifications(userId: string): Promise<Notification[]>;
   markNotificationRead(id: string): Promise<void>;
+  
+  // Chat messages
+  createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  getChatMessages(complaintId: string): Promise<(ChatMessage & { sender?: User })[]>;
+  updateChatMessage(id: string, message: string): Promise<ChatMessage>;
+  deleteChatMessage(id: string): Promise<void>;
   
   // Analytics
   getComplaintStats(departmentId?: string): Promise<{
@@ -296,6 +305,48 @@ export class DatabaseStorage implements IStorage {
       .update(notifications)
       .set({ isRead: true })
       .where(eq(notifications.id, id));
+  }
+
+  // Chat message operations
+  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+    const [newMessage] = await db
+      .insert(chatMessages)
+      .values(message)
+      .returning();
+    return newMessage;
+  }
+
+  async getChatMessages(complaintId: string): Promise<(ChatMessage & { sender?: User })[]> {
+    const messages = await db
+      .select()
+      .from(chatMessages)
+      .leftJoin(users, eq(chatMessages.senderId, users.id))
+      .where(eq(chatMessages.complaintId, complaintId))
+      .orderBy(chatMessages.createdAt);
+
+    return messages.map(row => ({
+      ...row.chat_messages,
+      sender: row.users || undefined,
+    }));
+  }
+
+  async updateChatMessage(id: string, message: string): Promise<ChatMessage> {
+    const [updatedMessage] = await db
+      .update(chatMessages)
+      .set({ 
+        message, 
+        isEdited: true, 
+        editedAt: new Date() 
+      })
+      .where(eq(chatMessages.id, id))
+      .returning();
+    return updatedMessage;
+  }
+
+  async deleteChatMessage(id: string): Promise<void> {
+    await db
+      .delete(chatMessages)
+      .where(eq(chatMessages.id, id));
   }
 
   // Analytics

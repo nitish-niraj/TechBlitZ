@@ -5,12 +5,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
-import Landing from "@/pages/landing";
+import HomePage from "@/pages/home";
+import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import SubmitComplaint from "@/pages/submit-complaint";
 import ComplaintDetail from "@/pages/complaint-detail";
-import AdminDashboard from "@/pages/admin-dashboard";
-import Header from "@/components/header";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -25,17 +24,20 @@ function Router() {
 
   return (
     <Switch>
+      {/* Login route is always available */}
+      <Route path="/login" component={Login} />
+      
       {!isAuthenticated ? (
-        <Route path="/" component={Landing} />
+        <>
+          <Route path="/" component={HomePage} />
+          <Route path="/home" component={HomePage} />
+        </>
       ) : (
         <>
-          <div className="min-h-screen bg-background">
-            <Header />
-            <Route path="/" component={Dashboard} />
-            <Route path="/submit" component={SubmitComplaint} />
-            <Route path="/complaint/:id" component={ComplaintDetail} />
-            <Route path="/admin" component={AdminDashboard} />
-          </div>
+          <Route path="/" component={Dashboard} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/submit" component={SubmitComplaint} />
+          <Route path="/complaint/:id" component={ComplaintDetail} />
         </>
       )}
       <Route component={NotFound} />

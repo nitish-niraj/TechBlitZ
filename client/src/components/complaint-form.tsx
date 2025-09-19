@@ -22,6 +22,12 @@ const complaintSchema = z.object({
     "food_services",
     "it_services",
     "administration",
+    "security",
+    "transportation",
+    "library",
+    "sports_recreation",
+    "medical_health",
+    "financial_fees",
     "other"
   ]),
   priority: z.enum(["low", "medium", "high", "critical"]),
@@ -40,12 +46,18 @@ interface ComplaintFormProps {
 
 const categoryLabels = {
   academic_issues: "Academic Issues",
-  infrastructure: "Infrastructure",
+  infrastructure: "Infrastructure & Facilities",
   hostel_accommodation: "Hostel & Accommodation", 
-  food_services: "Food Services",
-  it_services: "IT Services",
-  administration: "Administration",
-  other: "Other",
+  food_services: "Food & Catering Services",
+  it_services: "IT & Technical Services",
+  administration: "Administrative Issues",
+  security: "Security & Safety",
+  transportation: "Transportation",
+  library: "Library Services",
+  sports_recreation: "Sports & Recreation",
+  medical_health: "Medical & Health Services",
+  financial_fees: "Financial & Fee Issues",
+  other: "Other Issues",
 };
 
 const priorityLabels = {

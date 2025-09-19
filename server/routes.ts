@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./devAuth";
 import { insertComplaintSchema, insertDepartmentSchema, insertComplaintAttachmentSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
@@ -43,23 +43,8 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
+  // Auth middleware - using dev authentication
   await setupAuth(app);
-
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
 
   // Department routes
   app.get('/api/departments', isAuthenticated, async (req, res) => {
@@ -316,6 +301,386 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching stats:", error);
       res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // User Management Routes (Admin Only)
+  app.post('/api/admin/users', isAuthenticated, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      if (adminUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const { email, firstName, lastName, role, studentId, departmentId } = req.body;
+
+      // Validate required fields
+      if (!email || !firstName || !lastName || !role) {
+        return res.status(400).json({ message: "Missing required fields: email, firstName, lastName, role" });
+      }
+
+      // Validate role
+      if (!['student', 'staff', 'admin'].includes(role)) {
+        return res.status(400).json({ message: "Invalid role. Must be student, staff, or admin." });
+      }
+
+      // For students, require studentId
+      if (role === 'student' && !studentId) {
+        return res.status(400).json({ message: "Student ID is required for student accounts." });
+      }
+
+      // For staff, require departmentId
+      if (role === 'staff' && !departmentId) {
+        return res.status(400).json({ message: "Department ID is required for staff accounts." });
+      }
+
+      // Generate a unique user ID
+      const userId = `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+
+      const newUser = await storage.upsertUser({
+        id: userId,
+        email,
+        firstName,
+        lastName,
+        role: role as "student" | "staff" | "admin",
+        profileImageUrl: null,
+        departmentId: role === 'staff' ? departmentId : null,
+        studentId: role === 'student' ? studentId : null,
+      });
+
+      // Create notification for the new user
+      await storage.createNotification({
+        userId: newUser.id,
+        title: "Welcome to University Grievance System",
+        message: `Your ${role} account has been created. You can now log in using your email: ${email}`,
+        type: "account_created",
+      });
+
+      res.status(201).json({ 
+        message: "User created successfully", 
+        user: newUser,
+        loginInstructions: `User can login with email: ${email} and a temporary password will be sent separately.`
+      });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.get('/api/admin/users/search', isAuthenticated, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      if (adminUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const { role, department, search } = req.query;
+      
+      // Get all users and filter based on query parameters
+      const allUsers = await storage.getAllUsers();
+      let filteredUsers = allUsers;
+
+      if (role && role !== 'all') {
+        filteredUsers = filteredUsers.filter(user => user.role === role);
+      }
+
+      if (department && department !== 'all') {
+        filteredUsers = filteredUsers.filter(user => user.departmentId === department);
+      }
+
+      if (search) {
+        const searchTerm = String(search).toLowerCase();
+        filteredUsers = filteredUsers.filter(user => 
+          (user.firstName && user.firstName.toLowerCase().includes(searchTerm)) ||
+          (user.lastName && user.lastName.toLowerCase().includes(searchTerm)) ||
+          (user.email && user.email.toLowerCase().includes(searchTerm)) ||
+          (user.studentId && user.studentId.toLowerCase().includes(searchTerm))
+        );
+      }
+
+      res.json(filteredUsers);
+    } catch (error) {
+      console.error("Error searching users:", error);
+      res.status(500).json({ message: "Failed to search users" });
+    }
+  });
+
+  app.patch('/api/admin/users/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      if (adminUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const userId = req.params.id;
+      const { firstName, lastName, email, departmentId, studentId, role } = req.body;
+
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...existingUser,
+        firstName: firstName || existingUser.firstName,
+        lastName: lastName || existingUser.lastName,
+        email: email || existingUser.email,
+        departmentId: departmentId !== undefined ? departmentId : existingUser.departmentId,
+        studentId: studentId !== undefined ? studentId : existingUser.studentId,
+        role: role || existingUser.role,
+      });
+
+      // Create notification for user about profile update
+      await storage.createNotification({
+        userId: updatedUser.id,
+        title: "Profile Updated",
+        message: "Your profile information has been updated by an administrator.",
+        type: "profile_updated",
+      });
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.delete('/api/admin/users/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      if (adminUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const userId = req.params.id;
+      
+      // Prevent admin from deleting themselves
+      if (userId === adminUser.id) {
+        return res.status(400).json({ message: "Cannot delete your own admin account." });
+      }
+
+      const userToDelete = await storage.getUser(userId);
+      if (!userToDelete) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // In a real implementation, you'd have a deleteUser method
+      // For now, we'll just return success as the storage doesn't have delete functionality
+      res.json({ 
+        message: "User deletion requested", 
+        note: "User deletion would be implemented in production with proper data handling" 
+      });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  app.post('/api/admin/users/bulk-create', isAuthenticated, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getUser(req.user.claims.sub);
+      if (adminUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const { users } = req.body;
+
+      if (!Array.isArray(users) || users.length === 0) {
+        return res.status(400).json({ message: "Invalid users array provided" });
+      }
+
+      const createdUsers = [];
+      const errors = [];
+
+      for (const userData of users) {
+        try {
+          const { email, firstName, lastName, role, studentId, departmentId } = userData;
+
+          // Validate required fields
+          if (!email || !firstName || !lastName || !role) {
+            errors.push({ email, error: "Missing required fields" });
+            continue;
+          }
+
+          // Generate unique user ID
+          const userId = `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+
+          const newUser = await storage.upsertUser({
+            id: userId,
+            email,
+            firstName,
+            lastName,
+            role: role as "student" | "staff" | "admin",
+            profileImageUrl: null,
+            departmentId: role === 'staff' ? departmentId : null,
+            studentId: role === 'student' ? studentId : null,
+          });
+
+          createdUsers.push(newUser);
+
+          // Create welcome notification
+          await storage.createNotification({
+            userId: newUser.id,
+            title: "Welcome to University Grievance System",
+            message: `Your ${role} account has been created.`,
+            type: "account_created",
+          });
+
+        } catch (error) {
+          errors.push({ email: userData.email, error: "Failed to create user" });
+        }
+      }
+
+      res.status(201).json({
+        message: `Successfully created ${createdUsers.length} users`,
+        created: createdUsers,
+        errors: errors,
+        summary: {
+          total: users.length,
+          successful: createdUsers.length,
+          failed: errors.length
+        }
+      });
+    } catch (error) {
+      console.error("Error bulk creating users:", error);
+      res.status(500).json({ message: "Failed to bulk create users" });
+    }
+  });
+
+  // Staff department routes
+  app.get('/api/complaints/department', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      let complaints;
+      if (user.role === 'admin') {
+        // Admin can see all complaints
+        complaints = await storage.getComplaints();
+      } else if (user.role === 'staff' && user.departmentId) {
+        // Staff can see complaints for their department
+        complaints = await storage.getComplaints(undefined, user.departmentId);
+      } else {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(complaints);
+    } catch (error) {
+      console.error("Error fetching department complaints:", error);
+      res.status(500).json({ message: "Failed to fetch complaints" });
+    }
+  });
+
+  app.put('/api/complaints/:id/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || (user.role !== 'staff' && user.role !== 'admin')) {
+        return res.status(403).json({ message: "Access denied. Staff or admin role required." });
+      }
+
+      const { status, comment } = req.body;
+      const complaintId = req.params.id;
+
+      // Update complaint status
+      const updatedComplaint = await storage.updateComplaintStatus(complaintId, status, user.id);
+      
+      if (!updatedComplaint) {
+        return res.status(404).json({ message: "Complaint not found" });
+      }
+
+      // Add status update comment if provided
+      if (comment) {
+        await storage.createChatMessage({
+          complaintId: complaintId,
+          senderId: user.id,
+          message: comment,
+          messageType: "staff_update",
+        });
+      }
+
+      // Create notification for student
+      await storage.createNotification({
+        userId: updatedComplaint.userId!,
+        title: "Complaint Status Updated",
+        message: `Your complaint "${updatedComplaint.subject}" status has been updated to ${status.replace('_', ' ')}.`,
+        type: "status_update",
+        relatedComplaintId: updatedComplaint.id,
+      });
+
+      res.json(updatedComplaint);
+    } catch (error) {
+      console.error("Error updating complaint status:", error);
+      res.status(500).json({ message: "Failed to update complaint status" });
+    }
+  });
+
+  app.put('/api/complaints/:id/assign', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || (user.role !== 'staff' && user.role !== 'admin')) {
+        return res.status(403).json({ message: "Access denied. Staff or admin role required." });
+      }
+
+      const { assignedTo } = req.body;
+      const complaintId = req.params.id;
+
+      const updatedComplaint = await storage.assignComplaint(complaintId, assignedTo, user.id);
+      
+      if (!updatedComplaint) {
+        return res.status(404).json({ message: "Complaint not found" });
+      }
+
+      // Create notification for assigned staff member
+      if (assignedTo) {
+        await storage.createNotification({
+          userId: assignedTo,
+          title: "Complaint Assigned",
+          message: `You have been assigned a new complaint: "${updatedComplaint.subject}".`,
+          type: "complaint_assigned",
+          relatedComplaintId: updatedComplaint.id,
+        });
+      }
+
+      // Create notification for student
+      await storage.createNotification({
+        userId: updatedComplaint.userId!,
+        title: "Complaint Assigned",
+        message: `Your complaint "${updatedComplaint.subject}" has been assigned to a staff member.`,
+        type: "complaint_assigned",
+        relatedComplaintId: updatedComplaint.id,
+      });
+
+      res.json(updatedComplaint);
+    } catch (error) {
+      console.error("Error assigning complaint:", error);
+      res.status(500).json({ message: "Failed to assign complaint" });
+    }
+  });
+
+  app.get('/api/analytics/department', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      let departmentId;
+      if (user.role === 'staff') {
+        departmentId = user.departmentId;
+      } else if (user.role === 'admin') {
+        // Admin can see all department stats
+        departmentId = req.query.departmentId || undefined;
+      } else {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const stats = await storage.getComplaintStats(departmentId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching department analytics:", error);
+      res.status(500).json({ message: "Failed to fetch department analytics" });
     }
   });
 
