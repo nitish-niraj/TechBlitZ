@@ -24,17 +24,14 @@ function Router() {
 
   return (
     <Switch>
-      {/* Login route is always available */}
+      {/* Public routes */}
+      <Route path="/" component={HomePage} />
+      <Route path="/home" component={HomePage} />
       <Route path="/login" component={Login} />
       
-      {!isAuthenticated ? (
+      {/* Protected routes */}
+      {isAuthenticated && (
         <>
-          <Route path="/" component={HomePage} />
-          <Route path="/home" component={HomePage} />
-        </>
-      ) : (
-        <>
-          <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/submit" component={SubmitComplaint} />
           <Route path="/complaint/:id" component={ComplaintDetail} />

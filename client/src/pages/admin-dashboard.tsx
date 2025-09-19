@@ -39,7 +39,8 @@ import {
   Shield,
   UserCheck,
   AlertCircle,
-  Activity
+  Activity,
+  User as UserIcon
 } from "lucide-react";
 import type { User, ComplaintWithDetails, Department } from "@shared/schema";
 
@@ -257,7 +258,7 @@ export default function NewAdminDashboard() {
 
   const filteredComplaints = allComplaints?.filter(c => {
     const matchesSearch = 
-      c.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.description?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesDepartment = departmentFilter === "all" || c.departmentId === departmentFilter;
@@ -338,7 +339,7 @@ export default function NewAdminDashboard() {
                 {allComplaints?.slice(0, 5).map((complaint) => (
                   <div key={complaint.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex-1">
-                      <p className="font-medium text-sm">{complaint.title}</p>
+                      <p className="font-medium text-sm">{complaint.subject}</p>
                       <p className="text-xs text-gray-500">
                         {departments?.find(d => d.id === complaint.departmentId)?.name}
                       </p>
@@ -725,7 +726,7 @@ export default function NewAdminDashboard() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-lg">{complaint.title}</h3>
+                    <h3 className="font-semibold text-lg">{complaint.subject}</h3>
                     <Badge variant={
                       complaint.status === 'resolved' ? 'default' : 
                       complaint.status === 'in_progress' ? 'secondary' : 'destructive'
@@ -743,7 +744,7 @@ export default function NewAdminDashboard() {
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      {new Date(complaint.createdAt).toLocaleDateString()}
+                      {complaint.createdAt ? new Date(complaint.createdAt).toLocaleDateString() : 'N/A'}
                     </span>
                     <span className="flex items-center gap-1">
                       <UserIcon className="h-4 w-4" />

@@ -206,11 +206,11 @@ export default function NewStaffDashboard() {
 
   // Filter functions
   const myComplaints = complaints?.filter(c => c.departmentId === user?.departmentId) || [];
-  const assignedComplaints = myComplaints.filter(c => c.assignedTo === user?.id);
+  const assignedComplaints = myComplaints.filter(c => c.assignedTo?.id === user?.id);
   
   const filteredComplaints = myComplaints.filter(c => {
     const matchesSearch = 
-      c.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.description?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
@@ -248,7 +248,7 @@ export default function NewStaffDashboard() {
             <div className="text-2xl font-bold">
               {assignedComplaints.filter(c => 
                 c.status === 'resolved' && 
-                new Date(c.updatedAt).toDateString() === new Date().toDateString()
+                new Date(c.updatedAt || Date.now()).toDateString() === new Date().toDateString()
               ).length}
             </div>
             <p className="text-xs opacity-80">
@@ -329,9 +329,9 @@ export default function NewStaffDashboard() {
                 {assignedComplaints.slice(0, 5).map((complaint) => (
                   <div key={complaint.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex-1">
-                      <p className="font-medium text-sm line-clamp-1">{complaint.title}</p>
+                      <p className="font-medium text-sm line-clamp-1">{complaint.subject}</p>
                       <p className="text-xs text-gray-500">
-                        {new Date(complaint.updatedAt).toLocaleDateString()}
+                        {new Date(complaint.updatedAt || Date.now()).toLocaleDateString()}
                       </p>
                     </div>
                     <Badge variant={
@@ -408,7 +408,7 @@ export default function NewStaffDashboard() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-lg">{complaint.title}</h3>
+                    <h3 className="font-semibold text-lg">{complaint.subject}</h3>
                     <Badge variant={
                       complaint.status === 'resolved' ? 'default' : 
                       complaint.status === 'in_progress' ? 'secondary' : 'destructive'
@@ -435,11 +435,11 @@ export default function NewStaffDashboard() {
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      {new Date(complaint.createdAt).toLocaleDateString()}
+                      {new Date(complaint.createdAt || Date.now()).toLocaleDateString()}
                     </span>
                     <span className="flex items-center gap-1">
                       <Timer className="h-4 w-4" />
-                      {Math.ceil((Date.now() - new Date(complaint.createdAt).getTime()) / (1000 * 60 * 60 * 24))} days
+                      {Math.ceil((Date.now() - new Date(complaint.createdAt || Date.now()).getTime()) / (1000 * 60 * 60 * 24))} days
                     </span>
                   </div>
                 </div>
@@ -621,7 +621,7 @@ export default function NewStaffDashboard() {
                         }`}>
                           <p className="text-sm">{message.message}</p>
                           <p className="text-xs opacity-70 mt-1">
-                            {new Date(message.createdAt).toLocaleTimeString()}
+                            {new Date(message.createdAt || Date.now()).toLocaleTimeString()}
                           </p>
                         </div>
                       </div>
@@ -689,14 +689,14 @@ export default function NewStaffDashboard() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-lg">{complaint.title}</h3>
+                    <h3 className="font-semibold text-lg">{complaint.subject}</h3>
                     <Badge variant={
                       complaint.status === 'resolved' ? 'default' : 
                       complaint.status === 'in_progress' ? 'secondary' : 'destructive'
                     }>
                       {complaint.status.replace('_', ' ')}
                     </Badge>
-                    {complaint.assignedTo === user?.id && (
+                    {complaint.assignedTo?.id === user?.id && (
                       <Badge variant="outline">Assigned to you</Badge>
                     )}
                   </div>
@@ -710,11 +710,11 @@ export default function NewStaffDashboard() {
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      Created: {new Date(complaint.createdAt).toLocaleDateString()}
+                      Created: {new Date(complaint.createdAt || Date.now()).toLocaleDateString()}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
-                      Updated: {new Date(complaint.updatedAt).toLocaleDateString()}
+                      Updated: {new Date(complaint.updatedAt || Date.now()).toLocaleDateString()}
                     </span>
                   </div>
                 </div>

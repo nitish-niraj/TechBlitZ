@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -100,7 +100,7 @@ export default function NewStudentDashboard({ userType = "student" }: StudentDas
 
   // Filter notifications for display
   const filteredComplaints = myComplaints.filter(complaint => {
-    const matchesSearch = complaint.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = complaint.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          complaint.description?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || complaint.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -137,14 +137,16 @@ export default function NewStudentDashboard({ userType = "student" }: StudentDas
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString();
+  const formatDate = (date: Date | string | null) => {
+    if (!date) return 'N/A';
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleDateString();
   };
 
-  const formatDateTime = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleString();
+  const formatDateTime = (date: Date | string | null) => {
+    if (!date) return 'N/A';
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleString();
   };
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
@@ -342,7 +344,7 @@ export default function NewStudentDashboard({ userType = "student" }: StudentDas
                       <div className="flex items-start space-x-3">
                         {getStatusIcon(complaint.status)}
                         <div>
-                          <h3 className="font-medium">{complaint.title}</h3>
+                          <h3 className="font-medium">{complaint.subject}</h3>
                           <p className="text-sm text-gray-600">{complaint.category}</p>
                           <p className="text-xs text-gray-500">Created: {formatDate(complaint.createdAt)}</p>
                         </div>
@@ -467,7 +469,7 @@ export default function NewStudentDashboard({ userType = "student" }: StudentDas
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             {getStatusIcon(complaint.status)}
-                            <h3 className="font-medium">{complaint.title}</h3>
+                            <h3 className="font-medium">{complaint.subject}</h3>
                             <Badge className={getStatusColor(complaint.status)}>
                               {complaint.status.replace('_', ' ')}
                             </Badge>
@@ -602,7 +604,7 @@ export default function NewStudentDashboard({ userType = "student" }: StudentDas
             <div className="space-y-4">
               <div>
                 <Label>Title</Label>
-                <p className="text-lg font-medium">{selectedComplaintData.title}</p>
+                <p className="text-lg font-medium">{selectedComplaintData.subject}</p>
               </div>
               <div>
                 <Label>Description</Label>

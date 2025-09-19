@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express, { type Request, Response, NextFunction } from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { registerRoutes } from "./routes";

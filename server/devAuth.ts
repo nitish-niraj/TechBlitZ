@@ -1,5 +1,4 @@
-import type { Express, RequestHandler } from "express";
-import express from "express";
+import express, { type Express, type RequestHandler } from "express";
 import { storage } from "./storage";
 
 // Mock session middleware for development
@@ -74,15 +73,65 @@ async function ensureDevUser() {
       console.log("Student user might already exist:", err);
     }
     
-    // Create a sample department
-    try {
-      await storage.createDepartment({
+    // Create sample departments
+    const departments = [
+      {
         name: "Computer Science",
-        description: "Department of Computer Science and Engineering",
-      });
-      console.log("Created sample department");
-    } catch (err) {
-      // Department might already exist, that's fine
+        description: "Department of Computer Science and Engineering"
+      },
+      {
+        name: "Electrical Engineering", 
+        description: "Department of Electrical and Electronics Engineering"
+      },
+      {
+        name: "Mechanical Engineering",
+        description: "Department of Mechanical Engineering"
+      },
+      {
+        name: "Civil Engineering",
+        description: "Department of Civil Engineering"
+      },
+      {
+        name: "Student Affairs",
+        description: "Office of Student Affairs and Campus Life"
+      },
+      {
+        name: "Academic Affairs",
+        description: "Office of Academic Affairs and Curriculum"
+      },
+      {
+        name: "Administration",
+        description: "General Administration and Management"
+      },
+      {
+        name: "IT Services",
+        description: "Information Technology and Digital Services"
+      },
+      {
+        name: "Library Services",
+        description: "Central Library and Information Resources"
+      },
+      {
+        name: "Hostel Management",
+        description: "Student Housing and Accommodation Services"
+      },
+      {
+        name: "Food Services",
+        description: "Cafeteria and Dining Services Management"
+      },
+      {
+        name: "Sports & Recreation",
+        description: "Sports Complex and Recreational Activities"
+      }
+    ];
+
+    for (const dept of departments) {
+      try {
+        await storage.createDepartment(dept);
+        console.log(`Created department: ${dept.name}`);
+      } catch (err) {
+        // Department might already exist, that's fine
+      }
     }
   } catch (err) {
     console.error("Error setting up development users:", err);

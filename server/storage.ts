@@ -21,7 +21,7 @@ import {
   type ChatMessage,
   type InsertChatMessage,
   type ComplaintWithDetails,
-} from "@shared/schema";
+} from "../shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, count, sql } from "drizzle-orm";
 
@@ -108,7 +108,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDepartment(department: InsertDepartment): Promise<Department> {
-    const [newDepartment] = await db.insert(departments).values(department).returning();
+    const [newDepartment] = await db.insert(departments).values(department as any).returning();
     return newDepartment;
   }
 
@@ -187,7 +187,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createComplaint(complaint: InsertComplaint): Promise<Complaint> {
-    const [newComplaint] = await db.insert(complaints).values(complaint).returning();
+    const [newComplaint] = await db.insert(complaints).values(complaint as any).returning();
     
     // Add initial history entry
     await this.addComplaintHistory({
@@ -208,7 +208,7 @@ export class DatabaseStorage implements IStorage {
       .set({ 
         status: status as any,
         updatedAt: new Date(),
-        resolvedAt: status === 'resolved' ? new Date() : null,
+        resolvedAt: status === 'resolved' ? new Date() : undefined,
       })
       .where(eq(complaints.id, id))
       .returning();
@@ -254,7 +254,7 @@ export class DatabaseStorage implements IStorage {
 
   // Complaint attachments
   async addComplaintAttachment(attachment: InsertComplaintAttachment): Promise<ComplaintAttachment> {
-    const [newAttachment] = await db.insert(complaintAttachments).values(attachment).returning();
+    const [newAttachment] = await db.insert(complaintAttachments).values(attachment as any).returning();
     return newAttachment;
   }
 
@@ -264,7 +264,7 @@ export class DatabaseStorage implements IStorage {
 
   // Complaint history
   async addComplaintHistory(history: InsertComplaintHistory): Promise<ComplaintHistory> {
-    const [newHistory] = await db.insert(complaintHistory).values(history).returning();
+    const [newHistory] = await db.insert(complaintHistory).values(history as any).returning();
     return newHistory;
   }
 
@@ -287,7 +287,7 @@ export class DatabaseStorage implements IStorage {
 
   // Notifications
   async createNotification(notification: InsertNotification): Promise<Notification> {
-    const [newNotification] = await db.insert(notifications).values(notification).returning();
+    const [newNotification] = await db.insert(notifications).values(notification as any).returning();
     return newNotification;
   }
 
@@ -303,7 +303,7 @@ export class DatabaseStorage implements IStorage {
   async markNotificationRead(id: string): Promise<void> {
     await db
       .update(notifications)
-      .set({ isRead: true })
+      .set({ isRead: true } as any)
       .where(eq(notifications.id, id));
   }
 
@@ -311,7 +311,7 @@ export class DatabaseStorage implements IStorage {
   async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
     const [newMessage] = await db
       .insert(chatMessages)
-      .values(message)
+      .values(message as any)
       .returning();
     return newMessage;
   }
@@ -337,7 +337,7 @@ export class DatabaseStorage implements IStorage {
         message, 
         isEdited: true, 
         editedAt: new Date() 
-      })
+      } as any)
       .where(eq(chatMessages.id, id))
       .returning();
     return updatedMessage;

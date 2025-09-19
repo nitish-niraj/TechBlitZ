@@ -13,8 +13,17 @@ export function useAuth() {
     }
   }, []);
 
+
+  // Get userType from localStorage (default to 'admin')
+  const userType = typeof window !== 'undefined' ? (localStorage.getItem('userType') || 'admin') : 'admin';
+
   const { data: user, isLoading } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
+    queryKey: ["/api/auth/user", userType],
+    queryFn: async () => {
+      const res = await fetch(`/api/auth/user?userType=${userType}`);
+      if (!res.ok) throw new Error('Failed to fetch user');
+      return res.json();
+    },
     retry: false,
     enabled: !loggedOut,
   });

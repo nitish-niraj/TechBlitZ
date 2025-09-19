@@ -232,41 +232,67 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
 }));
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({
+export const insertUserSchema = createInsertSchema(users, {
+  id: z.string().optional(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertDepartmentSchema = createInsertSchema(departments).omit({
+export const insertDepartmentSchema = createInsertSchema(departments, {
+  id: z.string().optional(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertComplaintSchema = createInsertSchema(complaints).omit({
+export const insertComplaintSchema = createInsertSchema(complaints, {
+  id: z.string().optional(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
+  resolvedAt: z.date().optional(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
   resolvedAt: true,
 });
 
-export const insertComplaintAttachmentSchema = createInsertSchema(complaintAttachments).omit({
+export const insertComplaintAttachmentSchema = createInsertSchema(complaintAttachments, {
+  id: z.string().optional(),
+  createdAt: z.date().optional(),
+}).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertComplaintHistorySchema = createInsertSchema(complaintHistory).omit({
+export const insertComplaintHistorySchema = createInsertSchema(complaintHistory, {
+  id: z.string().optional(),
+  createdAt: z.date().optional(),
+}).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertNotificationSchema = createInsertSchema(notifications).omit({
+export const insertNotificationSchema = createInsertSchema(notifications, {
+  id: z.string().optional(),
+  createdAt: z.date().optional(),
+}).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+export const insertChatMessageSchema = createInsertSchema(chatMessages, {
+  id: z.string().optional(),
+  createdAt: z.date().optional(),
+  editedAt: z.date().optional(),
+}).omit({
   id: true,
   createdAt: true,
   editedAt: true,
