@@ -30,6 +30,7 @@ export interface IStorage {
   // User operations (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  deleteUser(id: string): Promise<void>;
   
   // Department operations
   getDepartments(): Promise<Department[]>;
@@ -39,6 +40,7 @@ export interface IStorage {
   // Complaint operations
   getComplaints(userId?: string, departmentId?: string): Promise<ComplaintWithDetails[]>;
   getComplaint(id: string): Promise<ComplaintWithDetails | undefined>;
+  getComplaintsAssignedTo(assignedToId: string): Promise<ComplaintWithDetails[]>;
   createComplaint(complaint: InsertComplaint): Promise<Complaint>;
   updateComplaintStatus(id: string, status: string, actorId: string): Promise<Complaint>;
   assignComplaint(id: string, assignedToId: string, actorId: string): Promise<Complaint>;
@@ -97,6 +99,12 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async deleteUser(id: string): Promise<void> {
+    // Note: In a production system, you'd want to handle cascading deletes carefully
+    // For now, we'll perform a simple delete
+    await db.delete(users).where(eq(users.id, id));
+  }
+
   // Department operations
   async getDepartments(): Promise<Department[]> {
     return await db.select().from(departments).orderBy(departments.name);
@@ -149,6 +157,35 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async getComplaintsAssignedTo(assignedToId: string): Promise<ComplaintWithDetails[]> {
+    const query = db
+      .select({
+        complaint: complaints,
+        user: users,
+        department: departments,
+        assignedTo: {
+          id: sql`assigned_user.id`,
+          firstName: sql`assigned_user.first_name`,
+          lastName: sql`assigned_user.last_name`,
+          email: sql`assigned_user.email`,
+        },
+      })
+      .from(complaints)
+      .leftJoin(users, eq(complaints.userId, users.id))
+      .leftJoin(departments, eq(complaints.departmentId, departments.id))
+      .leftJoin(sql`users as assigned_user`, sql`complaints.assigned_to_id = assigned_user.id`)
+      .where(eq(complaints.assignedToId, assignedToId));
+
+    const results = await query.orderBy(desc(complaints.createdAt));
+
+    return results.map(result => ({
+      ...result.complaint,
+      user: result.user || undefined,
+      department: result.department || undefined,
+      assignedTo: result.assignedTo?.id ? result.assignedTo as User : undefined,
+    }));
+  }
+
   async getComplaint(id: string): Promise<ComplaintWithDetails | undefined> {
     const [result] = await db
       .select({
@@ -187,7 +224,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createComplaint(complaint: InsertComplaint): Promise<Complaint> {
-    const [newComplaint] = await db.insert(complaints).values(complaint as any).returning();
+    // First, try to auto-assign to appropriate staff member
+    let assignedToId = null;
+    
+    if (complaint.departmentId) {
+      // Try to find department head first
+      const [department] = await db.select().from(departments).where(eq(departments.id, complaint.departmentId));
+      
+      if (department?.headId) {
+        assignedToId = department.headId;
+      } else {
+        // If no department head, find any available staff member in that department
+        const [staffMember] = await db
+          .select()
+          .from(users)
+          .where(and(
+            eq(users.role, 'staff'),
+            eq(users.departmentId, complaint.departmentId)
+          ))
+          .limit(1);
+        
+        if (staffMember) {
+          assignedToId = staffMember.id;
+        }
+      }
+    }
+    
+    // Create complaint with assignment
+    const complaintWithAssignment = {
+      ...complaint,
+      assignedToId,
+      status: assignedToId ? 'assigned' : 'submitted'
+    } as any;
+    
+    const [newComplaint] = await db.insert(complaints).values(complaintWithAssignment).returning();
     
     // Add initial history entry
     await this.addComplaintHistory({
@@ -196,6 +266,17 @@ export class DatabaseStorage implements IStorage {
       action: "submitted",
       description: "Complaint submitted successfully",
     });
+    
+    // Add assignment history if complaint was assigned
+    if (assignedToId) {
+      await this.addComplaintHistory({
+        complaintId: newComplaint.id,
+        actorId: assignedToId, // System assignment
+        action: "assigned",
+        description: "Automatically assigned to staff member",
+        newValue: assignedToId,
+      });
+    }
 
     return newComplaint;
   }

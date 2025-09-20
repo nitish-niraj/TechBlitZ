@@ -22,12 +22,6 @@ const complaintSchema = z.object({
     "food_services",
     "it_services",
     "administration",
-    "security",
-    "transportation",
-    "library",
-    "sports_recreation",
-    "medical_health",
-    "financial_fees",
     "other"
   ]),
   priority: z.enum(["low", "medium", "high", "critical"]),
@@ -51,12 +45,6 @@ const categoryLabels = {
   food_services: "Food & Catering Services",
   it_services: "IT & Technical Services",
   administration: "Administrative Issues",
-  security: "Security & Safety",
-  transportation: "Transportation",
-  library: "Library Services",
-  sports_recreation: "Sports & Recreation",
-  medical_health: "Medical & Health Services",
-  financial_fees: "Financial & Fee Issues",
   other: "Other Issues",
 };
 
@@ -84,7 +72,12 @@ export default function ComplaintForm({ departments, onSubmit, isSubmitting }: C
     // Add form fields
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        formData.append(key, value.toString());
+        // Handle boolean values specially
+        if (typeof value === 'boolean') {
+          formData.append(key, value ? 'true' : 'false');
+        } else {
+          formData.append(key, value.toString());
+        }
       }
     });
 
@@ -232,8 +225,9 @@ export default function ComplaintForm({ departments, onSubmit, isSubmitting }: C
           {/* Anonymous Option */}
           <div className="flex items-center space-x-2">
             <Checkbox
-              {...form.register("isAnonymous")}
               id="anonymous"
+              checked={form.watch("isAnonymous")}
+              onCheckedChange={(checked) => form.setValue("isAnonymous", !!checked)}
               data-testid="checkbox-anonymous"
             />
             <Label htmlFor="anonymous" className="text-sm">

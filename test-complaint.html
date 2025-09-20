@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Complaint Submission</title>
+</head>
+<body>
+    <h1>Test Complaint Form</h1>
+    <form id="testForm">
+        <input name="subject" value="Test Subject" required><br><br>
+        <textarea name="description" required>Test description</textarea><br><br>
+        <select name="category" required>
+            <option value="other">Other</option>
+        </select><br><br>
+        <select name="priority" required>
+            <option value="medium">Medium</option>
+        </select><br><br>
+        <input name="departmentId" value="test-dept"><br><br>
+        <button type="submit">Submit</button>
+    </form>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('subject', 'Test Subject');
+            formData.append('description', 'Test description');
+            formData.append('category', 'other');
+            formData.append('priority', 'medium');
+            formData.append('departmentId', 'test-dept');
+            
+            console.log('Sending FormData...');
+            
+            try {
+                const response = await fetch('/api/complaints?userType=student', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('Response status:', response.status);
+                const result = await response.text();
+                console.log('Response:', result);
+                
+                if (response.ok) {
+                    alert('Success: ' + result);
+                } else {
+                    alert('Error: ' + result);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

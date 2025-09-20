@@ -36,6 +36,9 @@ export default function Dashboard() {
   // Route to appropriate dashboard based on user role
   const userRole = user?.role || 'student';
   
+  console.log('Dashboard: Current user:', user);
+  console.log('Dashboard: User role:', userRole);
+  
   if (userRole === 'admin') {
     return <AdminDashboard />;
   }

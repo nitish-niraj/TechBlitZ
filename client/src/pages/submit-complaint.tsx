@@ -29,12 +29,21 @@ export default function SubmitComplaint() {
 
   const { data: departments } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
+    queryFn: async () => {
+      const userType = localStorage.getItem('userType') || 'student';
+      const res = await fetch(`/api/departments?userType=${userType}`);
+      if (!res.ok) throw new Error('Failed to fetch departments');
+      return res.json();
+    },
     enabled: isAuthenticated,
   });
 
   const submitComplaintMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await fetch("/api/complaints", {
+      // Get userType from localStorage
+      const userType = localStorage.getItem('userType') || 'student';
+      
+      const response = await fetch(`/api/complaints?userType=${userType}`, {
         method: "POST",
         body: formData,
         credentials: "include",

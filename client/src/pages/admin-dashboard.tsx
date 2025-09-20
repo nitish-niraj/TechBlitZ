@@ -217,6 +217,61 @@ export default function NewAdminDashboard() {
     },
   });
 
+  // Edit user mutation
+  const editUserMutation = useMutation({
+    mutationFn: async (userData: typeof newUser & { id: string }) => {
+      const { id, ...updateData } = userData;
+      const response = await fetch(`/api/admin/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "User updated successfully!",
+      });
+      setIsEditUserOpen(false);
+      setSelectedUser(null);
+      refetchUsers();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to update user: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handler to open edit dialog with user data
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setNewUser({
+      email: user.email || "",
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      role: user.role,
+      studentId: user.studentId || "",
+      departmentId: user.departmentId || "",
+    });
+    setIsEditUserOpen(true);
+  };
+
+  // Handler to submit edit form
+  const handleEditSubmit = () => {
+    if (selectedUser) {
+      editUserMutation.mutate({
+        id: selectedUser.id,
+        ...newUser,
+      });
+    }
+  };
+
   // Loading and error states
   if (isLoading) {
     return (
@@ -582,6 +637,100 @@ export default function NewAdminDashboard() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="editFirstName">First Name</Label>
+                  <Input
+                    id="editFirstName"
+                    value={newUser.firstName}
+                    onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editLastName">Last Name</Label>
+                  <Input
+                    id="editLastName"
+                    value={newUser.lastName}
+                    onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="editEmail">Email</Label>
+                <Input
+                  id="editEmail"
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="editRole">Role</Label>
+                <Select value={newUser.role} onValueChange={(value: "student" | "staff" | "admin") => 
+                  setNewUser({ ...newUser, role: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">Student</SelectItem>
+                    <SelectItem value="staff">Staff</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {newUser.role === "student" && (
+                <div>
+                  <Label htmlFor="editStudentId">Student ID</Label>
+                  <Input
+                    id="editStudentId"
+                    value={newUser.studentId}
+                    onChange={(e) => setNewUser({ ...newUser, studentId: e.target.value })}
+                  />
+                </div>
+              )}
+
+              {(newUser.role === "staff" || newUser.role === "admin") && (
+                <div>
+                  <Label htmlFor="editDepartment">Department</Label>
+                  <Select value={newUser.departmentId} onValueChange={(value) => 
+                    setNewUser({ ...newUser, departmentId: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No Department</SelectItem>
+                      {departments?.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleEditSubmit}
+                disabled={editUserMutation.isPending}
+              >
+                {editUserMutation.isPending ? "Updating..." : "Update User"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Filters */}
@@ -654,7 +803,12 @@ export default function NewAdminDashboard() {
               <Separator className="my-3" />
               
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => handleEditUser(user)}
+                >
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
                 </Button>

@@ -113,9 +113,9 @@ export default function HomePage() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
           <div className="mb-8">
-            <Badge className="mb-4 bg-blue-100 text-blue-800 hover:bg-blue-200">
+            {/* <Badge className="mb-4 bg-blue-100 text-blue-800 hover:bg-blue-200">
               New System Launch
-            </Badge>
+            </Badge> */}
             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
               University Grievance
               <span className="block text-blue-600">Redressal System</span>

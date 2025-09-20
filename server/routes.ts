@@ -130,20 +130,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/complaints', isAuthenticated, upload.array('attachments', 5), async (req: any, res) => {
     try {
+      console.log("Creating complaint for user:", req.user.claims.sub);
+      
       const user = await storage.getUser(req.user.claims.sub);
       if (!user) {
+        console.error("User not found:", req.user.claims.sub);
         return res.status(404).json({ message: "User not found" });
       }
 
+      console.log("Found user:", user.email, "Role:", user.role);
+      console.log("Request body:", req.body);
+      console.log("isAnonymous field type:", typeof req.body.isAnonymous);
+      console.log("isAnonymous field value:", req.body.isAnonymous);
+
+      // Convert string booleans from FormData to actual booleans
+      const processedBody = { ...req.body };
+      
+      // Handle isAnonymous field - convert string to boolean
+      if (typeof processedBody.isAnonymous === 'string') {
+        console.log("Converting isAnonymous from string:", processedBody.isAnonymous);
+        processedBody.isAnonymous = processedBody.isAnonymous.toLowerCase() === 'true';
+        console.log("Converted isAnonymous to boolean:", processedBody.isAnonymous);
+      }
+      
+      // Ensure isAnonymous has a default value if not provided
+      if (processedBody.isAnonymous === undefined || processedBody.isAnonymous === null) {
+        processedBody.isAnonymous = false;
+      }
+
+      console.log("Processed body:", processedBody);
+
       const validatedData = insertComplaintSchema.parse({
-        ...req.body,
+        ...processedBody,
         userId: user.id,
       });
 
+      console.log("Validated data:", validatedData);
+
       const complaint = await storage.createComplaint(validatedData);
+      console.log("Created complaint:", complaint.id);
 
       // Handle file uploads
       if (req.files && req.files.length > 0) {
+        console.log("Processing", req.files.length, "file attachments");
         for (const file of req.files) {
           await storage.addComplaintAttachment({
             complaintId: complaint.id,
@@ -155,9 +184,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Create notification for department
+      // Create notifications for assignment
       if (complaint.departmentId) {
         const department = await storage.getDepartment(complaint.departmentId);
+        
+        // Notify department head if exists
         if (department && department.headId) {
           await storage.createNotification({
             userId: department.headId,
@@ -168,11 +199,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
-
+      
+      // Notify assigned staff member if complaint was auto-assigned
       const fullComplaint = await storage.getComplaint(complaint.id);
+      if (fullComplaint?.assignedToId && fullComplaint.assignedToId !== complaint.departmentId) {
+        await storage.createNotification({
+          userId: fullComplaint.assignedToId,
+          title: "Complaint Assigned to You",
+          message: `A new complaint "${complaint.subject}" has been assigned to you for resolution.`,
+          type: "complaint_assigned",
+          relatedComplaintId: complaint.id,
+        });
+      }
+
+      console.log("Returning full complaint:", fullComplaint?.id);
       res.status(201).json(fullComplaint);
     } catch (error) {
       console.error("Error creating complaint:", error);
+      
+      // Provide more specific error information
+      if (error instanceof Error) {
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+        
+        // Check if it's a validation error
+        if (error.message.includes('validation') || error.message.includes('parse')) {
+          return res.status(400).json({ 
+            message: "Invalid complaint data", 
+            details: error.message 
+          });
+        }
+      }
+      
       res.status(500).json({ message: "Failed to create complaint" });
     }
   });
@@ -464,11 +522,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // In a real implementation, you'd have a deleteUser method
-      // For now, we'll just return success as the storage doesn't have delete functionality
+      // Delete the user
+      await storage.deleteUser(userId);
+
       res.json({ 
-        message: "User deletion requested", 
-        note: "User deletion would be implemented in production with proper data handling" 
+        message: "User deleted successfully",
+        deletedUser: {
+          id: userToDelete.id,
+          email: userToDelete.email,
+          name: `${userToDelete.firstName} ${userToDelete.lastName}`
+        }
       });
     } catch (error) {
       console.error("Error deleting user:", error);
@@ -559,9 +622,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.role === 'admin') {
         // Admin can see all complaints
         complaints = await storage.getComplaints();
-      } else if (user.role === 'staff' && user.departmentId) {
-        // Staff can see complaints for their department
-        complaints = await storage.getComplaints(undefined, user.departmentId);
+      } else if (user.role === 'staff') {
+        // Staff can see complaints for their department OR assigned to them
+        const departmentComplaints = user.departmentId ? 
+          await storage.getComplaints(undefined, user.departmentId) : [];
+        const assignedComplaints = await storage.getComplaintsAssignedTo(user.id);
+        
+        // Merge and deduplicate complaints
+        const allComplaints = [...departmentComplaints, ...assignedComplaints];
+        const uniqueComplaints = allComplaints.filter((complaint, index, self) =>
+          index === self.findIndex(c => c.id === complaint.id)
+        );
+        complaints = uniqueComplaints;
       } else {
         return res.status(403).json({ message: "Access denied" });
       }

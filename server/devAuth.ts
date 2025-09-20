@@ -18,7 +18,20 @@ export const isAuthenticated: RequestHandler = async (req: any, res, next) => {
         sub: "dev-user-123"
       }
     };
+  } else if (userType === 'student') {
+    req.user = {
+      claims: {
+        sub: "dev-user-456"
+      }
+    };
+  } else if (userType === 'staff') {
+    req.user = {
+      claims: {
+        sub: "dev-user-789"
+      }
+    };
   } else {
+    // Default to student for any other case
     req.user = {
       claims: {
         sub: "dev-user-456"
@@ -71,6 +84,26 @@ async function ensureDevUser() {
     } catch (err) {
       // User might already exist, that's fine
       console.log("Student user might already exist:", err);
+    }
+
+    // Also create a staff user for testing
+    const staffUser = {
+      id: "dev-user-789",
+      email: "staff@university.edu",
+      firstName: "Staff",
+      lastName: "Member",
+      role: "staff" as "staff",
+      profileImageUrl: null,
+      departmentId: null, // Will be set later when departments are created
+      studentId: null,
+    };
+    
+    try {
+      await storage.upsertUser(staffUser);
+      console.log("Created development staff user");
+    } catch (err) {
+      // User might already exist, that's fine
+      console.log("Staff user might already exist:", err);
     }
     
     // Create sample departments
@@ -127,8 +160,28 @@ async function ensureDevUser() {
 
     for (const dept of departments) {
       try {
-        await storage.createDepartment(dept);
+        const department = await storage.createDepartment(dept);
         console.log(`Created department: ${dept.name}`);
+        
+        // Assign staff member to Computer Science department as head
+        if (dept.name === "Computer Science") {
+          try {
+            // Update staff user to be assigned to Computer Science department
+            await storage.upsertUser({
+              id: "dev-user-789",
+              email: "staff@university.edu",
+              firstName: "Staff",
+              lastName: "Member",
+              role: "staff" as "staff",
+              profileImageUrl: null,
+              departmentId: department.id,
+              studentId: null,
+            });
+            console.log("Assigned staff member to Computer Science department");
+          } catch (err) {
+            console.log("Error assigning staff to department:", err);
+          }
+        }
       } catch (err) {
         // Department might already exist, that's fine
       }
@@ -147,14 +200,31 @@ export async function setupAuth(app: Express) {
   
   // Setup routes for development auth
   app.get("/api/login", (req, res) => {
-    const userType = req.query.userType || 'admin';
+    const userType = req.query.userType || 'student';
     // Redirect to home with userType in query param
     res.redirect(`/?userType=${userType}`);
+  });
+
+  // Handle POST login requests
+  app.post("/api/auth/login", (req, res) => {
+    const { email } = req.body;
+    let userType = 'student';
+    
+    if (email === 'admin@university.edu') {
+      userType = 'admin';
+    } else if (email === 'staff@university.edu') {
+      userType = 'staff';
+    } else if (email === 'student@university.edu') {
+      userType = 'student';
+    }
+    
+    // Return success response
+    res.json({ success: true, userType });
   });
   
   // Mock user data endpoint
   app.get('/api/auth/user', (req: any, res) => {
-    const userType = req.query.userType || 'admin';
+    const userType = req.query.userType || 'student';
     
     if (userType === 'admin') {
       res.json({
@@ -166,6 +236,19 @@ export async function setupAuth(app: Express) {
         profileImageUrl: null,
         departmentId: null,
         studentId: "ADMIN123",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    } else if (userType === 'staff') {
+      res.json({
+        id: "dev-user-789",
+        email: "staff@university.edu",
+        firstName: "Staff",
+        lastName: "Member",
+        role: "staff",
+        profileImageUrl: null,
+        departmentId: "dept-cs-001", // Assign to Computer Science department
+        studentId: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });

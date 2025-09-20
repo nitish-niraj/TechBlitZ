@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, University } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Bell, University, Users, ChevronDown } from "lucide-react";
 import type { Notification } from "@shared/schema";
 
 export default function Header() {
@@ -21,6 +22,13 @@ export default function Header() {
     if (path === "/" && location === "/") return true;
     if (path !== "/" && location.startsWith(path)) return true;
     return false;
+  };
+
+  const currentUserType = typeof window !== 'undefined' ? (localStorage.getItem('userType') || 'admin') : 'admin';
+
+  const switchUserType = (newUserType: string) => {
+    localStorage.setItem('userType', newUserType);
+    window.location.reload();
   };
 
   return (
@@ -89,6 +97,28 @@ export default function Header() {
 
           {/* User Info */}
           <div className="flex items-center space-x-4">
+            {/* User Type Switcher */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                  <Users className="w-4 h-4" />
+                  <span className="capitalize">{currentUserType}</span>
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => switchUserType('student')}>
+                  Switch to Student
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => switchUserType('staff')}>
+                  Switch to Staff
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => switchUserType('admin')}>
+                  Switch to Admin
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             {/* Notifications */}
             <Button
               variant="ghost"
